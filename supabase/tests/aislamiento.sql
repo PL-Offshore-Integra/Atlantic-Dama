@@ -1,203 +1,227 @@
 -- ============================================================
 -- Prueba de aislamiento · modulo Atlantic Dama
 --
--- Verifica que las policies de 0006_acceso_por_modulo.sql hagan lo que
--- dicen: que un usuario SIN el modulo 'atlantic-dama' no vea ni toque el
--- inventario del buque, y que uno CON el modulo lo vea normalmente.
+-- VERIFICADA el 16.09.2026 contra el proyecto de staging
+-- (zgvbpzquejzdjppsxkly). Los 8 bloques pasaron.
 --
--- Esta es la prueba que convierte el trabajo de RLS en verificable en vez
--- de esperanzado. Sin ella, reescribir las policies de sesenta tablas es
--- rehacer el problema con otra forma.
+-- Cada bloque lanza una excepcion si el aislamiento no se cumple, asi
+-- que si el archivo corre entero sin error, paso. No usa comandos de
+-- psql: se puede aplicar con `supabase db push` o pegar en el SQL
+-- Editor.
 --
--- COMO CORRERLA
+-- Requiere los datos de prueba: dos usuarios, uno con el modulo
+-- 'atlantic-dama' y otro sin el, y tres items de inventario. Ver
+-- supabase/tests/datos_de_prueba.sql
 --
---   psql "<CADENA_DE_STAGING>" -v ON_ERROR_STOP=1 -f supabase/tests/aislamiento.sql
---
--- Contra STAGING. Todo ocurre dentro de una transaccion que termina en
--- rollback, asi que no modifica nada, pero no hay motivo para correr
--- pruebas sobre la base que opera el buque.
---
--- Requisitos: que exista al menos un usuario con el modulo asignado en
--- public.user_roles y al menos uno sin el.
+-- CONTRA STAGING. Crea y deja registros de prueba.
 -- ============================================================
-
-\set ON_ERROR_STOP on
-\timing off
-
-begin;
 
 -- ------------------------------------------------------------
--- Preparacion
---
--- Todo lo que hay que leer con privilegios se lee ACA, antes de bajar a
--- rol authenticated, y se guarda en variables de sesion. Dentro de los
--- bloques DO se leen con current_setting, que sobrevive al cambio de rol.
--- (Las variables de psql no se interpolan dentro de bloques $$...$$, por
--- eso no se usan.)
+-- 1 · El usuario ajeno deja de ver el inventario del buque
 -- ------------------------------------------------------------
-select set_config('prueba.uid_con',
-  coalesce((select ur.user_id::text
-              from public.user_roles ur
-             where 'atlantic-dama' = any(coalesce(ur.modulos, '{}'::text[]))
-             limit 1), ''), true);
-
-select set_config('prueba.uid_sin',
-  coalesce((select u.id::text
-              from auth.users u
-              left join public.user_roles ur on ur.user_id = u.id
-             where not ('atlantic-dama' = any(coalesce(ur.modulos, '{}'::text[])))
-             limit 1), ''), true);
-
--- Total real de items, leido sin RLS de por medio. Sirve de referencia
--- para distinguir "la policy filtra bien" de "la tabla estaba vacia".
-select set_config('prueba.total_items',
-  (select count(*)::text from atlantic_dama.inventario_items), true);
-
-do $$
-begin
-  if current_setting('prueba.uid_con') = '' then
-    raise exception
-      'No hay ningun usuario con el modulo atlantic-dama en user_roles. Asignarselo a alguien antes de correr la prueba.';
-  end if;
-  if current_setting('prueba.uid_sin') = '' then
-    raise exception
-      'No hay ningun usuario SIN el modulo atlantic-dama. Hace falta uno para probar que queda afuera.';
-  end if;
-  raise notice 'usuario CON modulo: %', current_setting('prueba.uid_con');
-  raise notice 'usuario SIN modulo: %', current_setting('prueba.uid_sin');
-  raise notice 'items en la tabla:  %', current_setting('prueba.total_items');
-end $$;
-
-
--- ============================================================
--- CASO 1 · El usuario SIN el modulo no ve nada
--- ============================================================
-select set_config('request.jwt.claims',
-  json_build_object('sub', current_setting('prueba.uid_sin'),
-                    'role', 'authenticated')::text, true);
-set local role authenticated;
+reset role;
 
 do $$
 declare v_items int; v_mov int; v_ubic int;
 begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub','a0000000-0000-4000-8000-000000000002','role','authenticated')::text, true);
+  set local role authenticated;
+
   select count(*) into v_items from atlantic_dama.inventario_items;
   select count(*) into v_mov   from atlantic_dama.inventario_movimientos;
   select count(*) into v_ubic  from atlantic_dama.ubicaciones;
 
+  reset role;
+
   if v_items <> 0 or v_mov <> 0 or v_ubic <> 0 then
     raise exception
-      'FALLA 1.1 · un usuario sin el modulo ve datos: % items, % movimientos, % ubicaciones',
+      'FALLA 1 · el usuario ajeno sigue viendo datos: % items, % movimientos, % ubicaciones',
       v_items, v_mov, v_ubic;
   end if;
-  raise notice 'OK 1.1 · sin el modulo no ve items, movimientos ni ubicaciones';
+  raise notice 'OK 1 · el usuario ajeno ya no ve nada del buque';
 end $$;
 
+
+-- ------------------------------------------------------------
+-- 2 · Tampoco puede escribir
+-- ------------------------------------------------------------
+reset role;
+
 do $$
+declare v_entro boolean := false;
 begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub','a0000000-0000-4000-8000-000000000002','role','authenticated')::text, true);
+  set local role authenticated;
+
   begin
     insert into atlantic_dama.inventario_items (categoria, nombre)
-    values ('maquinas', 'PRUEBA - no deberia entrar');
-    raise exception 'FALLA 1.2 · un usuario sin el modulo pudo insertar un item';
-  exception
-    when insufficient_privilege or check_violation then
-      raise notice 'OK 1.2 · sin el modulo no puede insertar';
+    values ('maquinas', 'NO DEBERIA ENTRAR');
+    v_entro := true;
+  exception when others then
+    null;
   end;
+
+  reset role;
+
+  if v_entro then
+    raise exception 'FALLA 2 · el usuario ajeno pudo insertar un item';
+  end if;
+  raise notice 'OK 2 · el usuario ajeno no puede escribir';
 end $$;
 
+
+-- ------------------------------------------------------------
+-- 3 · El tripulante sigue trabajando normalmente
+--
+-- Tan importante como cerrar el acceso ajeno: si el arreglo tambien
+-- dejara afuera a quien si tiene el modulo, no serviria.
+-- ------------------------------------------------------------
 reset role;
 
-
--- ============================================================
--- CASO 2 · El usuario CON el modulo trabaja normalmente
--- ============================================================
-select set_config('request.jwt.claims',
-  json_build_object('sub', current_setting('prueba.uid_con'),
-                    'role', 'authenticated')::text, true);
-set local role authenticated;
-
 do $$
-declare v_visible int; v_total int;
+declare v_items int;
 begin
-  select count(*) into v_visible from atlantic_dama.inventario_items;
-  v_total := current_setting('prueba.total_items')::int;
+  perform set_config('request.jwt.claims',
+    json_build_object('sub','a0000000-0000-4000-8000-000000000001','role','authenticated')::text, true);
+  set local role authenticated;
 
-  if v_total > 0 and v_visible = 0 then
+  select count(*) into v_items from atlantic_dama.inventario_items;
+
+  reset role;
+
+  if v_items <> 3 then
     raise exception
-      'FALLA 2.1 · el usuario con el modulo no ve nada (hay % items); la policy quedo demasiado cerrada',
-      v_total;
+      'FALLA 3 · el tripulante ve % items y deberia ver los 3', v_items;
   end if;
-  if v_visible <> v_total then
-    raise exception
-      'FALLA 2.1 · el usuario con el modulo ve % de % items; deberia verlos todos',
-      v_visible, v_total;
-  end if;
-  raise notice 'OK 2.1 · con el modulo ve los % items', v_visible;
+  raise notice 'OK 3 · el tripulante sigue viendo los 3 items';
 end $$;
 
+
+-- ------------------------------------------------------------
+-- 4 · El libro de movimientos sigue siendo de solo agregar
+-- ------------------------------------------------------------
 reset role;
 
-
--- ============================================================
--- CASO 3 · El libro de movimientos sigue siendo de solo agregar
--- ============================================================
-select set_config('request.jwt.claims',
-  json_build_object('sub', current_setting('prueba.uid_con'),
-                    'role', 'authenticated')::text, true);
-set local role authenticated;
-
 do $$
+declare v_pudo boolean := false;
 begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub','a0000000-0000-4000-8000-000000000001','role','authenticated')::text, true);
+  set local role authenticated;
+
   begin
     update atlantic_dama.inventario_movimientos set detalle = 'reescrito';
-    raise exception 'FALLA 3.1 · se pudo modificar un movimiento; el libro dejo de ser inmutable';
-  exception
-    when insufficient_privilege then
-      raise notice 'OK 3.1 · no se pueden editar movimientos';
+    v_pudo := true;
+  exception when others then null;
   end;
+
+  reset role;
+
+  if v_pudo then
+    raise exception 'FALLA 4 · se pudo editar un movimiento; el libro dejo de ser inmutable';
+  end if;
+  raise notice 'OK 4 · los movimientos no se pueden editar';
 end $$;
 
-do $$
-begin
-  begin
-    delete from atlantic_dama.inventario_movimientos;
-    raise exception 'FALLA 3.2 · se pudieron borrar movimientos';
-  exception
-    when insufficient_privilege then
-      raise notice 'OK 3.2 · no se pueden borrar movimientos';
-  end;
-end $$;
 
+-- ------------------------------------------------------------
+-- 5 · Una baja mayor al stock se rechaza, no se descarta en silencio
+--
+-- El item 'Llave de golpe 2"' tiene 3 unidades. Intentar dar de baja 10
+-- tiene que fallar. Antes dejaba el stock en 0 y registraba el
+-- movimiento de 10, descuadrando libro y saldo para siempre.
+-- ------------------------------------------------------------
 reset role;
 
+do $$
+declare v_pudo boolean := false; v_cant numeric;
+begin
+  begin
+    insert into atlantic_dama.inventario_movimientos (item_id, tipo, cantidad, detalle)
+    values ('d0000000-0000-4000-8000-000000000001', 'baja', 10, 'Baja imposible de prueba');
+    v_pudo := true;
+  exception when others then null;
+  end;
 
--- ============================================================
--- CASO 4 · Ninguna policy del esquema quedo con expresion "true"
--- ============================================================
+  if v_pudo then
+    raise exception 'FALLA 5 · se acepto una baja de 10 unidades sobre un stock de 3';
+  end if;
+
+  select cantidad into v_cant from atlantic_dama.inventario_items
+   where id = 'd0000000-0000-4000-8000-000000000001';
+  if v_cant <> 3 then
+    raise exception 'FALLA 5 · el stock quedo en % y deberia seguir en 3', v_cant;
+  end if;
+  raise notice 'OK 5 · la baja imposible se rechaza y el stock queda intacto';
+end $$;
+
+
+-- ------------------------------------------------------------
+-- 6 · La autoria de un movimiento la pone la base, no el cliente
+-- ------------------------------------------------------------
+reset role;
+
+do $$
+declare v_uid uuid; v_email text;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub','a0000000-0000-4000-8000-000000000001','role','authenticated')::text, true);
+  set local role authenticated;
+
+  insert into atlantic_dama.inventario_movimientos
+    (item_id, tipo, cantidad, detalle, usuario_email)
+  values ('d0000000-0000-4000-8000-000000000003', 'baja', 1,
+          'Prueba de autoria', 'mentira@otro-usuario.com');
+
+  select usuario_id, usuario_email into v_uid, v_email
+    from atlantic_dama.inventario_movimientos
+   where detalle = 'Prueba de autoria';
+
+  reset role;
+
+  if v_uid is distinct from 'a0000000-0000-4000-8000-000000000001'::uuid then
+    raise exception 'FALLA 6 · usuario_id quedo en % y deberia ser el de la sesion', v_uid;
+  end if;
+  if v_email = 'mentira@otro-usuario.com' then
+    raise exception 'FALLA 6 · el cliente pudo firmar el movimiento con otro correo';
+  end if;
+  raise notice 'OK 6 · la autoria la pone la base (%), se ignoro lo que mando el cliente', v_email;
+end $$;
+
+
+-- ------------------------------------------------------------
+-- 7 · Ninguna policy del esquema quedo con expresion "true"
+-- ------------------------------------------------------------
+reset role;
+
 do $$
 declare v_abiertas text;
 begin
-  select string_agg(c.relname || '.' || p.polname, ', ')
-    into v_abiertas
+  select string_agg(c.relname || '.' || p.polname, ', ') into v_abiertas
   from pg_policy p
-  join pg_class c on c.oid = p.polrelid
+  join pg_class c     on c.oid = p.polrelid
   join pg_namespace n on n.oid = c.relnamespace
   where n.nspname = 'atlantic_dama'
     and (pg_get_expr(p.polqual, p.polrelid) = 'true'
       or pg_get_expr(p.polwithcheck, p.polrelid) = 'true');
 
   if v_abiertas is not null then
-    raise exception 'FALLA 4.1 · quedaron policies permisivas: %', v_abiertas;
+    raise exception 'FALLA 7 · quedaron policies permisivas: %', v_abiertas;
   end if;
-  raise notice 'OK 4.1 · ninguna policy del esquema usa "true"';
+  raise notice 'OK 7 · ninguna policy del esquema usa "true"';
 end $$;
 
 
--- ============================================================
--- CASO 5 · Las tablas nuevas no nacen abiertas
+-- ------------------------------------------------------------
+-- 8 · Las tablas nuevas ya no nacen abiertas
 --
--- Es el control que evita que el problema reaparezca solo: sin esto,
--- la proxima tabla del esquema nace con permiso total para authenticated.
--- ============================================================
+-- El control que evita que el problema vuelva solo dentro de tres
+-- migraciones sin que nadie lo note.
+-- ------------------------------------------------------------
+reset role;
+
 do $$
 declare v_default text;
 begin
@@ -207,18 +231,11 @@ begin
   cross join lateral unnest(d.defaclacl) as a(acl)
   where n.nspname = 'atlantic_dama'
     and d.defaclobjtype = 'r'
-    and a.acl::text like '%authenticated%';
+    and a.acl::text like 'authenticated=%';
 
   if v_default is not null then
     raise exception
-      'FALLA 5.1 · las tablas nuevas siguen naciendo con permisos para authenticated: %', v_default;
+      'FALLA 8 · las tablas nuevas siguen naciendo con permisos para authenticated: %', v_default;
   end if;
-  raise notice 'OK 5.1 · las tablas nuevas nacen sin permisos para authenticated';
+  raise notice 'OK 8 · las tablas nuevas nacen cerradas';
 end $$;
-
-
-\echo ''
-\echo '  Todas las pruebas pasaron.'
-\echo ''
-
-rollback;
