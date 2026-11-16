@@ -111,6 +111,9 @@ export interface Dpr {
   horas_0: number | null;
   horas_1: number | null;
   horas_2: number | null;
+  rib_horas: number | null;
+  rib_comb_usado: number | null;
+  rib_comb_disponible: number | null;
   usuario_email: string | null;
   created_at: string;
   updated_at: string;
@@ -385,6 +388,9 @@ export const CAMPOS_NUMERICOS = [
   "horas_0",
   "horas_1",
   "horas_2",
+  "rib_horas",
+  "rib_comb_usado",
+  "rib_comb_disponible",
 ] as const;
 
 export const CAMPOS_TEXTO = [

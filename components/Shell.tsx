@@ -43,6 +43,20 @@ const ICONS = {
       <path d="M9 15.5 15 8.5" />
     </>
   ),
+  chart: (
+    <>
+      <path d="M4 20V4" />
+      <path d="M4 20h16" />
+      <path d="M8 16v-4M12 16V8M16 16v-6" />
+    </>
+  ),
+  upload: (
+    <>
+      <path d="M12 16V4" />
+      <path d="M7 9l5-5 5 5" />
+      <path d="M4 20h16" />
+    </>
+  ),
   report: (
     <>
       <path d="M6 3h9l3 3v15H6z" />
@@ -79,7 +93,9 @@ const NAV: NavGroup[] = [
   {
     titulo: "Reportes",
     items: [
+      { href: "/dpr/dashboard", label: "Dashboard DPR", icon: "chart" },
       { href: "/dpr", label: "DPR (reporte diario)", icon: "report" },
+      { href: "/dpr/importar", label: "Importar DPR (Excel)", icon: "upload" },
     ],
   },
   { titulo: "Catalogos", items: [{ href: "/catalogos", label: "Ubicaciones y motivos", icon: "catalog" }] },
@@ -106,6 +122,16 @@ const SECCIONES: Record<string, { grupo: string; titulo: string; sub: string }> 
     grupo: "Reportes",
     titulo: "DPR - Daily Progress Report",
     sub: "Reporte diario del buque: se carga cada dia y se imprime con el formato de la planilla AD-DAILY REPORT.",
+  },
+  "/dpr/dashboard": {
+    grupo: "Reportes",
+    titulo: "Dashboard DPR",
+    sub: "Resumen del dia y acumulado del proyecto, a partir de los DPR cargados.",
+  },
+  "/dpr/importar": {
+    grupo: "Reportes",
+    titulo: "Importar DPR desde Excel",
+    sub: "Carga masiva de planillas AD-DAILY REPORT: se leen, se revisan en una vista previa y recien ahi se importan.",
   },
   "/dpr/nuevo": { grupo: "Reportes", titulo: "Nuevo DPR", sub: "" },
   "/catalogos": {

@@ -29,7 +29,7 @@ type CampoTexto = {
   [K in keyof DprFormState]: DprFormState[K] extends string ? K : never;
 }[keyof DprFormState];
 
-type Pestana = "general" | "maquinas" | "hse" | "tripulacion" | "shipment";
+type Pestana = "general" | "maquinas" | "rib" | "hse" | "tripulacion" | "shipment";
 
 const TRIPULANTE_VACIO: Omit<Tripulante, "tipo" | "fecha_embarque"> = {
   cargo: "",
@@ -48,7 +48,10 @@ export default function DprForm({
   numeroAnterior,
   avisoPrecarga,
   proyectos,
+  ribDisponibleAnterior,
 }: {
+  /** combustible disponible del RIB al cierre del DPR anterior (litros) */
+  ribDisponibleAnterior: number | null;
   action: (formData: FormData) => void;
   inicial: DprFormState;
   /** proyectos comerciales del buque (modulo Comercial) */
@@ -117,6 +120,7 @@ export default function DprForm({
   const PESTANAS: { key: Pestana; label: string }[] = [
     { key: "general", label: "Info general" },
     { key: "maquinas", label: "Info maquinas" },
+    { key: "rib", label: "Info RIB" },
     { key: "hse", label: `Info HSE (${s.eventos.length})` },
     { key: "tripulacion", label: `Tripulacion (${pobLista})` },
     { key: "shipment", label: `Shipment (${s.shipment.length})` },
@@ -426,6 +430,50 @@ export default function DprForm({
             {num("limite_critico", "Critical limit of fuel (m3)")}
           </div>
           <p className="dpr-hint">MGO end of day = start − consumo + bunkered − delivered.</p>
+        </div>
+      </div>
+
+      {/* ── INFO RIB ───────────────────────────────────────────────────── */}
+      <div hidden={tab !== "rib"}>
+        <div className="card">
+          <div className="card-title">RIB (bote de rescate / trabajo) · jornada {fmtFecha2(s.fecha)}</div>
+          <div className="form-grid g4">
+            {num("rib_horas", "Horas de uso")}
+            {num("rib_comb_usado", "Combustible utilizado (L)")}
+            {num("rib_comb_disponible", "Combustible disponible (L)")}
+          </div>
+          {ribDisponibleAnterior !== null && (
+            <p className="dpr-hint">
+              Disponible en el DPR anterior: <strong className="text-mono">{fmtNum(ribDisponibleAnterior, 0)} L</strong>
+              {n("rib_comb_usado") !== null && (
+                <>
+                  {" "}
+                  − utilizado {fmtNum(n("rib_comb_usado"), 0)} L ={" "}
+                  <strong className="text-mono">
+                    {fmtNum(ribDisponibleAnterior - (n("rib_comb_usado") ?? 0), 0)} L
+                  </strong>
+                  {n("rib_comb_disponible") !== ribDisponibleAnterior - (n("rib_comb_usado") ?? 0) && (
+                    <>
+                      {" "}
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() =>
+                          set(
+                            "rib_comb_disponible",
+                            String(ribDisponibleAnterior - (n("rib_comb_usado") ?? 0)).replace(".", ",")
+                          )
+                        }
+                      >
+                        Usar como disponible
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+              . Si se cargo combustible al RIB, el disponible es mayor: cargalo a mano.
+            </p>
+          )}
         </div>
       </div>
 

@@ -94,6 +94,17 @@ y `0009_seed_ehsq.sql` (historico del registro EHSQ de la planilla).
 - Jornada: el DPR del dia D cubre las 24 h que terminan a las 0900 LT de D, asi
   que su consumo y horas de motores van al renglon D-1 de la tabla mensual (como
   en la planilla: el DPR 106 del 15/11 informa el dia 14).
+- **Info RIB** (migracion `0011_dpr_rib.sql`): horas de uso, combustible
+  utilizado y disponible del bote; sale en la hoja impresa junto a la tripulacion.
+- `/dpr/dashboard`: resumen del dia (posicion, POB, MGO, motores, RIB,
+  navegacion, cambios de tripulacion, HSE) y acumulado del proyecto (MGO total y
+  diario, millas, RIB, eventos HSE, cambios de tripulacion, horas por motores,
+  drills). Filtros por proyecto y por dia.
+- `/dpr/importar`: carga masiva de planillas AD-DAILY REPORT (lector en
+  `lib/dpr-excel.ts`, con exceljs). Vista previa antes de guardar; si el numero o
+  la fecha de la planilla chocan con otro DPR y el nombre del archivo no, se usa
+  el del nombre del archivo. Los DPR ya cargados se saltean salvo "Reemplazar".
+  Si una planilla no trae eventos EHSQ de su fecha, no se borran los registrados.
 - Los eventos EHSQ se guardan por fecha (`ehsq_eventos`), no por DPR: borrar un
   DPR no borra los eventos de ese dia.
 

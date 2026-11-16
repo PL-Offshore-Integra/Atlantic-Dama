@@ -41,6 +41,7 @@ export default async function EditarDprPage({ params }: { params: Promise<{ id: 
         key={d.updated_at}
         action={guardarDpr.bind(null, id)}
         proyectos={proyectos}
+        ribDisponibleAnterior={ant.anterior?.rib_comb_disponible ?? null}
         inicial={stateDesdeDpr(d, tripulacion, eventos, shipment)}
         tripulacionAnterior={ant.tripulacion}
         numeroAnterior={ant.anterior?.numero ?? null}

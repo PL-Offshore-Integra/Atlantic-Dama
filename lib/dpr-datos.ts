@@ -38,6 +38,29 @@ export async function shipmentDe(supabase: Supa, dprId: string): Promise<Shipmen
   return (data ?? []).map(shipmentDesdeFila);
 }
 
+/** Listas de a bordo de muchos DPR. La API devuelve hasta 1000 filas por pedido,
+ *  asi que se trae por paginas (un proyecto largo tiene miles de filas). */
+export async function tripulacionDeVarios(supabase: Supa, dprIds: string[]) {
+  const filas: Record<string, unknown>[] = [];
+  for (let i = 0; i < dprIds.length; i += 40) {
+    const lote = dprIds.slice(i, i + 40);
+    for (let desde = 0; ; desde += 1000) {
+      const { data, error } = await supabase
+        .from("dpr_tripulacion")
+        .select("*")
+        .in("dpr_id", lote)
+        .order("dpr_id")
+        .order("tipo", { ascending: false })
+        .order("orden")
+        .range(desde, desde + 999);
+      if (error) throw new Error(error.message);
+      filas.push(...(data ?? []));
+      if (!data || data.length < 1000) break;
+    }
+  }
+  return { data: filas };
+}
+
 /** Proyectos del buque (modulo Comercial), primero los en curso y los mas nuevos. */
 export async function proyectosDelBuque(supabase: Supa): Promise<Proyecto[]> {
   const { data } = await supabase

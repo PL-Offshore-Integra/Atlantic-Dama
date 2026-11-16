@@ -58,6 +58,9 @@ export interface DprFormState {
   horas_0: string;
   horas_1: string;
   horas_2: string;
+  rib_horas: string;
+  rib_comb_usado: string;
+  rib_comb_disponible: string;
   tripulacion: Tripulante[];
   eventos: EventoHse[];
   shipment: Shipment[];
@@ -120,6 +123,9 @@ export function stateDesdeDpr(
     horas_0: nn(d.horas_0),
     horas_1: nn(d.horas_1),
     horas_2: nn(d.horas_2),
+    rib_horas: nn(d.rib_horas),
+    rib_comb_usado: nn(d.rib_comb_usado),
+    rib_comb_disponible: nn(d.rib_comb_disponible),
   };
 }
 
@@ -180,5 +186,8 @@ export function stateNuevo(
     horas_0: "",
     horas_1: "",
     horas_2: "",
+    rib_horas: "",
+    rib_comb_usado: "",
+    rib_comb_disponible: "",
   };
 }

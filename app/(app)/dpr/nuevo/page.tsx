@@ -15,6 +15,7 @@ export default async function NuevoDprPage() {
     <DprForm
       action={guardarDpr.bind(null, null)}
       proyectos={proyectos}
+      ribDisponibleAnterior={anterior?.rib_comb_disponible ?? null}
       inicial={stateNuevo(anterior, tripulacion ?? [], eventos)}
       tripulacionAnterior={tripulacion}
       numeroAnterior={anterior?.numero ?? null}

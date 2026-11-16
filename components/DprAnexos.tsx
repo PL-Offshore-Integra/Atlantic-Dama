@@ -1,4 +1,4 @@
-import { fmtFecha2, nombreCompleto, type Dpr, type EventoHse, type Shipment, type Tripulante } from "@/lib/dpr";
+import { fmtFecha2, fmtNum, nombreCompleto, type Dpr, type EventoHse, type Shipment, type Tripulante } from "@/lib/dpr";
 
 // Hojas que acompañan a la DR en la planilla: CREW AND PAX LIST,
 // AD - EHSQ Event y Shipment.
@@ -118,7 +118,33 @@ export function HojaTripulacion({
           </tr>
         </tbody>
       </table>
+      <TablaRib dpr={dpr} />
     </div>
+  );
+}
+
+export function TablaRib({ dpr }: { dpr: Dpr }) {
+  const v = (n: number | null, u: string) => (n === null ? "—" : `${fmtNum(n, n % 1 ? 1 : 0)} ${u}`);
+  return (
+    <>
+      <div className="anx-sub">RIB / WORKBOAT</div>
+      <table className="anx-t">
+        <thead>
+          <tr>
+            <th>Hours in use</th>
+            <th>Fuel used</th>
+            <th>Fuel available (end of day)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className="cen">{v(dpr.rib_horas, "h")}</td>
+            <td className="cen">{v(dpr.rib_comb_usado, "L")}</td>
+            <td className="cen">{v(dpr.rib_comb_disponible, "L")}</td>
+          </tr>
+        </tbody>
+      </table>
+    </>
   );
 }
 
