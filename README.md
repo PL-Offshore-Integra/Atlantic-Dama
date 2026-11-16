@@ -63,6 +63,27 @@ que sumar la categoria no requiere migracion de esquema.
   quedan sin ubicacion asignada, con el texto original anotado en
   comentarios para revisar y corregir manualmente.
 
+## Modulo DPR (Daily Progress Report)
+
+Reemplaza la planilla `AD-DAILY REPORT nnn-ddmmaa.xlsx` (hoja DR). Migraciones
+`0006_dpr.sql` (tablas) y `0007_seed_dpr.sql` (tripulacion/pasajeros y consumo
+01-13/11/2026 tomados del DPR 106).
+
+- `/dpr` lista los reportes; `/dpr/nuevo` arranca precargado con el anterior
+  (numero y fecha siguientes, contrato, MGO de inicio = cierre del dia previo,
+  POB segun quienes estan a bordo).
+- `/dpr/{id}/imprimir` arma la hoja DR en A4 vertical, igual a la planilla; el
+  PDF sale con "Imprimir / PDF" -> "Guardar como PDF".
+- `/dpr/tripulacion`: tripulacion y pasajeros con fecha de embarque/desembarque.
+  Cada DPR lista a quienes estaban a bordo en su fecha.
+- Calculos: MGO end of day = start - consumo + bunkered - delivered (la planilla
+  no restaba lo entregado); MGO de carga al cierre; aviso si las horas de motores
+  no suman 24; dias de combustible = MGO al cierre / consumo promedio de las
+  ultimas 7 jornadas; tabla mensual 1-31 desde `dpr_consumo_diario`.
+- Jornada: el DPR del dia D cubre las 24 h que terminan a las 0900 LT de D, asi
+  que su consumo y horas de motores van al renglon D-1 de la tabla mensual (como
+  en la planilla: el DPR 106 del 15/11 informa el dia 14).
+
 ## Usuarios (login)
 
 No hay alta de usuarios publica: el acceso es por invitacion. Para crear el

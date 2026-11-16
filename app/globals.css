@@ -167,6 +167,32 @@ tr.click:hover td{background:var(--surface2);cursor:pointer}
   .btn{height:44px;padding:0 14px}
 }
 
+/* == DPR (formulario de carga) == */
+.form-grid.g3{grid-template-columns:2fr 1fr 1fr}
+.form-grid.g4{grid-template-columns:repeat(4,1fr)}
+.form-grid.g5{grid-template-columns:repeat(5,1fr)}
+.dpr-form{max-width:1100px}
+.dpr-hint{font-size:13px;color:var(--muted);margin-top:4px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.dpr-warn{color:var(--danger);font-weight:500}
+.dpr-calc{background:var(--surface2)!important;font-family:var(--mono);font-weight:600}
+.dpr-checks{display:grid;grid-template-columns:1fr 2fr;gap:24px}
+.dpr-checks>div:last-child{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;align-content:start}
+.dpr-checks>div:last-child .dpr-sub{grid-column:1/-1}
+.dpr-sub{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+.dpr-check{display:flex;gap:8px;align-items:center;font-size:14px;padding:4px 0;cursor:pointer}
+.dpr-check input{width:16px;height:16px;accent-color:var(--action)}
+.dpr-guardia{border-top:1px solid var(--border);padding:14px 0}
+.dpr-guardia:first-of-type{border-top:0;padding-top:0}
+.dpr-guardia-head{font-size:13px;color:var(--navy);font-weight:600;margin-bottom:8px}
+.dpr-guardia .form-grid{margin-bottom:8px}
+.dpr-evento{display:grid;grid-template-columns:90px 1fr auto;gap:8px;margin-bottom:6px}
+.dpr-evento input{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);height:34px;padding:0 10px;font-family:var(--sans);font-size:14px}
+.dpr-evento .dpr-hora{font-family:var(--mono)}
+@media (max-width:768px){
+  .form-grid.g3,.form-grid.g4,.form-grid.g5{grid-template-columns:1fr 1fr}
+  .dpr-checks,.dpr-checks>div:last-child{grid-template-columns:1fr}
+}
+
 /* ══ LOGIN ═══════════════════════════════════════════════════════════════ */
 .login-page{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr) 560px;background:#FFFFFF;font-family:'IBM Plex Sans',sans-serif;color:#0F1419;text-align:left}
 .login-left{display:flex;flex-direction:column;justify-content:space-between;gap:48px;padding:56px 64px;background:#002247;border:0;text-align:left}

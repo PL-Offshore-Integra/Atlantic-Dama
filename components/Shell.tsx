@@ -43,6 +43,19 @@ const ICONS = {
       <path d="M9 15.5 15 8.5" />
     </>
   ),
+  report: (
+    <>
+      <path d="M6 3h9l3 3v15H6z" />
+      <path d="M9 9h6M9 13h6M9 17h4" />
+    </>
+  ),
+  crew: (
+    <>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+      <path d="M16 5.5a3 3 0 0 1 0 5.5M18 14.5c1.8.8 3 2.6 3 4.5" />
+    </>
+  ),
   catalog: (
     <>
       <rect x="4" y="4" width="16" height="16" rx="2" />
@@ -70,6 +83,13 @@ const NAV: NavGroup[] = [
       { href: "/inventario/cubierta", label: "Inventario Cubierta", icon: "deck" },
     ],
   },
+  {
+    titulo: "Reportes",
+    items: [
+      { href: "/dpr", label: "DPR (reporte diario)", icon: "report" },
+      { href: "/dpr/tripulacion", label: "Tripulacion y pasajeros", icon: "crew" },
+    ],
+  },
   { titulo: "Catalogos", items: [{ href: "/catalogos", label: "Ubicaciones y motivos", icon: "catalog" }] },
 ];
 
@@ -89,6 +109,17 @@ const SECCIONES: Record<string, { grupo: string; titulo: string; sub: string }> 
     grupo: "Inventario",
     titulo: "Inventario Cubierta",
     sub: "Elementos y pañol de cubierta: amarre, LSA, pintura, ferreteria y consumibles, por ubicacion.",
+  },
+  "/dpr": {
+    grupo: "Reportes",
+    titulo: "DPR - Daily Progress Report",
+    sub: "Reporte diario del buque: se carga cada dia y se imprime con el formato de la planilla AD-DAILY REPORT.",
+  },
+  "/dpr/nuevo": { grupo: "Reportes", titulo: "Nuevo DPR", sub: "" },
+  "/dpr/tripulacion": {
+    grupo: "Reportes",
+    titulo: "Tripulacion y pasajeros",
+    sub: "Quien esta a bordo y desde cuando. Alimenta el POB y la lista de tripulacion de cada DPR.",
   },
   "/catalogos": {
     grupo: "Catalogos",
@@ -125,6 +156,9 @@ function seccionFor(pathname: string) {
       return { grupo: "Inventario", titulo: "Reportar cambio de inventario", sub: "" };
     }
     return { grupo: "Inventario", titulo: "Editar item - Cubierta", sub: "" };
+  }
+  if (pathname.startsWith("/dpr/")) {
+    return { grupo: "Reportes", titulo: "Editar DPR", sub: "" };
   }
   return { grupo: "Atlantic Dama", titulo: "Atlantic Dama", sub: "" };
 }
@@ -178,8 +212,15 @@ export default function Shell({
               <div key={grupo.titulo} style={{ marginBottom: 8 }}>
                 <div className="nav-section">{grupo.titulo}</div>
                 {grupo.items.map((item) => {
+                  // activo = el item de ruta mas larga que coincide (asi /dpr/tripulacion
+                  // no marca tambien a /dpr)
+                  const coincide = (href: string) =>
+                    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
                   const active =
-                    item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                    coincide(item.href) &&
+                    !NAV.some((g) =>
+                      g.items.some((o) => o.href.length > item.href.length && coincide(o.href))
+                    );
                   return (
                     <Link key={item.href} href={item.href} className={`ni ${active ? "active" : ""}`}>
                       <span className="ni-ico">

@@ -3,6 +3,12 @@ import Link from "next/link";
 export default function Home() {
   return (
     <div className="stats">
+      <Link href="/dpr" className="stat" style={{ cursor: "pointer" }}>
+        <div className="stat-label">Reportes</div>
+        <div className="stat-value" style={{ fontSize: 18 }}>
+          DPR diario
+        </div>
+      </Link>
       <Link href="/inventario/maquinas" className="stat" style={{ cursor: "pointer" }}>
         <div className="stat-label">Inventario</div>
         <div className="stat-value" style={{ fontSize: 18 }}>

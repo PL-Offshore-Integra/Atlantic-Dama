@@ -1,0 +1,48 @@
+/* Hoja DR imprimible (A4 vertical), replica de la planilla AD-DAILY REPORT. */
+@page { size: A4 portrait; margin: 15mm 6mm 10mm 6mm; }
+
+.print-body { background: #e9ecef; min-height: 100vh; padding: 16px 0 48px; }
+.print-bar {
+  display: flex; gap: 8px; align-items: center; justify-content: center;
+  margin-bottom: 16px; font-family: var(--sans);
+}
+.print-bar .hint { font-size: 13px; color: var(--muted); }
+
+.hoja {
+  background: #fff; width: 1100px; margin: 0 auto; padding: 24px 12px 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .15);
+  font-family: Arial, Helvetica, sans-serif; color: #000;
+}
+table.dr {
+  width: auto; table-layout: fixed; border-collapse: collapse;
+  font-family: Arial, Helvetica, sans-serif; font-size: 8pt; line-height: 1.1;
+  margin: 0 auto;
+}
+table.dr td {
+  border: 1px solid #a6a6a6; padding: 0 3px; height: 11.25pt; vertical-align: middle;
+  white-space: nowrap; overflow: hidden; text-overflow: clip; font-size: 8pt;
+}
+table.dr td.sin { border: none; }
+table.dr td.b { font-weight: 700; }
+table.dr td.r { color: #ff0000; }
+table.dr td.az { color: #0070c0; }
+table.dr td.azul { color: #0000ff; }
+table.dr td.cen { text-align: center; }
+table.dr td.der { text-align: right; }
+table.dr td.izq { text-align: left; }
+table.dr td.g { font-size: 10pt; }
+table.dr td.gris { background: #d9d9d9; }
+table.dr td.ama { background: #ffff00; }
+table.dr td.marca { color: #c00000; }
+
+.dr-pie {
+  display: flex; justify-content: space-between; margin-top: 24px; padding: 0 8px;
+  font-family: Arial, Helvetica, sans-serif; font-size: 9pt;
+}
+
+@media print {
+  .print-body { background: #fff; padding: 0; }
+  .print-bar { display: none; }
+  .hoja { box-shadow: none; margin: 0 auto; padding: 0; width: auto; zoom: 0.68; }
+  table.dr td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
