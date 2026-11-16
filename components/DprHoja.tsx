@@ -11,7 +11,7 @@ import {
   normalizarGuardias,
   type Dpr,
   type FilaMes,
-  type Persona,
+  type Tripulante,
 } from "@/lib/dpr";
 
 // Hoja DR del "AD-DAILY REPORT" (A4 vertical), celda por celda: 15 columnas
@@ -34,7 +34,7 @@ export default function DprHoja({
   diasCombustible,
 }: {
   dpr: Dpr;
-  tripulantes: Persona[];
+  tripulantes: Tripulante[];
   mes: FilaMes[];
   diasCombustible: number | null;
 }) {

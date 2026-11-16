@@ -1,5 +1,4 @@
 import {
-  aBordo,
   guardiasVacias,
   hoyISO,
   mgoCargaFin,
@@ -8,12 +7,15 @@ import {
   sumarDias,
   type Dpr,
   type DprGuardia,
-  type Persona,
+  type EventoHse,
+  type Shipment,
+  type Tripulante,
 } from "@/lib/dpr";
 
 // Estado del formulario de DPR: los numeros se editan como texto (admiten coma
 // decimal) y se convierten recien al guardar (ver actions.ts).
 export interface DprFormState {
+  proyecto_id: string;
   numero: string;
   fecha: string;
   huso: string;
@@ -56,14 +58,26 @@ export interface DprFormState {
   horas_0: string;
   horas_1: string;
   horas_2: string;
+  tripulacion: Tripulante[];
+  eventos: EventoHse[];
+  shipment: Shipment[];
 }
 
 const t = (v: string | null | undefined) => v ?? "";
 const nn = (v: number | null | undefined) =>
   v === null || v === undefined ? "" : String(v).replace(".", ",");
 
-export function stateDesdeDpr(d: Dpr): DprFormState {
+export function stateDesdeDpr(
+  d: Dpr,
+  tripulacion: Tripulante[],
+  eventos: EventoHse[],
+  shipment: Shipment[]
+): DprFormState {
   return {
+    tripulacion,
+    eventos,
+    shipment,
+    proyecto_id: d.proyecto_id ?? "",
     numero: String(d.numero),
     fecha: d.fecha,
     huso: d.huso,
@@ -110,12 +124,20 @@ export function stateDesdeDpr(d: Dpr): DprFormState {
 }
 
 /** DPR nuevo precargado con el anterior: numero y fecha siguientes, datos fijos
- *  del contrato, ROB de arranque = cierre del dia anterior, POB segun quienes
- *  estan a bordo. Lo del dia (bitacora, consumo, condiciones) arranca vacio. */
-export function stateNuevo(ultimo: Dpr | null, personas: Persona[]): DprFormState {
+ *  del contrato, ROB de arranque = cierre del dia anterior y la misma lista de
+ *  a bordo (se corrige con quien subio o bajo). Lo del dia arranca vacio. */
+export function stateNuevo(
+  ultimo: Dpr | null,
+  tripulacionAnterior: Tripulante[],
+  eventosDelDia: EventoHse[]
+): DprFormState {
   const fecha = ultimo ? sumarDias(ultimo.fecha, 1) : hoyISO();
-  const bordo = aBordo(personas, fecha);
+  const pax = tripulacionAnterior.filter((p) => p.tipo === "pasajero").length;
   return {
+    tripulacion: tripulacionAnterior,
+    eventos: eventosDelDia,
+    shipment: [],
+    proyecto_id: ultimo?.proyecto_id ?? "",
     numero: ultimo ? String(ultimo.numero + 1) : "",
     fecha,
     huso: ultimo?.huso ?? "UTC-3",
@@ -127,8 +149,8 @@ export function stateNuevo(ultimo: Dpr | null, personas: Persona[]): DprFormStat
     pais: t(ultimo?.pais ?? "Argentina"),
     lat: "",
     lon: "",
-    pob: String(bordo.tripulantes.length + bordo.pasajeros.length),
-    pasajeros: String(bordo.pasajeros.length),
+    pob: String(tripulacionAnterior.length),
+    pasajeros: String(pax),
     operaciones: [],
     drills: [],
     eta_proximo: t(ultimo?.eta_proximo),

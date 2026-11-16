@@ -65,24 +65,37 @@ que sumar la categoria no requiere migracion de esquema.
 
 ## Modulo DPR (Daily Progress Report)
 
-Reemplaza la planilla `AD-DAILY REPORT nnn-ddmmaa.xlsx` (hoja DR). Migraciones
-`0006_dpr.sql` (tablas) y `0007_seed_dpr.sql` (tripulacion/pasajeros y consumo
-01-13/11/2026 tomados del DPR 106).
+Reemplaza la planilla `AD-DAILY REPORT nnn-ddmmaa.xlsx`. Migraciones `0006_dpr.sql`
+(tablas), `0007_seed_dpr.sql` (datos del DPR 106), `0008_dpr_pestanas.sql`
+(tripulacion por DPR, eventos EHSQ y shipment; elimina el padron `dpr_personas`)
+y `0009_seed_ehsq.sql` (historico del registro EHSQ de la planilla).
 
+- Cada DPR pertenece a un proyecto del modulo Comercial (`comercial.proyectos`
+  del buque, leidos por la vista `atlantic_dama.proyectos`; migracion
+  `0010_dpr_proyecto.sql`). El DPR nuevo hereda el proyecto del anterior y al
+  elegir proyecto se completa el fletador. El listado tiene columna y filtro
+  por proyecto.
 - `/dpr` lista los reportes; `/dpr/nuevo` arranca precargado con el anterior
-  (numero y fecha siguientes, contrato, MGO de inicio = cierre del dia previo,
-  POB segun quienes estan a bordo).
-- `/dpr/{id}/imprimir` arma la hoja DR en A4 vertical, igual a la planilla; el
-  PDF sale con "Imprimir / PDF" -> "Guardar como PDF".
-- `/dpr/tripulacion`: tripulacion y pasajeros con fecha de embarque/desembarque.
-  Cada DPR lista a quienes estaban a bordo en su fecha.
+  (numero y fecha siguientes, contrato, MGO de inicio = cierre del dia previo y
+  la misma tripulacion a bordo).
+- El formulario tiene cinco pestañas que se guardan juntas: **Info general**
+  (cabecera, operaciones, guardias, condiciones), **Info maquinas** (consumo,
+  horas de motores, ROB), **Info HSE** (eventos EHSQ del dia, drills, safety
+  cards, descargas), **Tripulacion** (lista de a bordo del dia; marca quien
+  subio y quien bajo respecto del DPR anterior) y **Shipment**.
+- `/dpr/{id}/imprimir` arma la hoja DR (A4 vertical, igual a la planilla) y las
+  anexas: Crew and Pax List (con el cambio de tripulacion), EHSQ Events Record
+  del mes y Shipment (si hay envios). El PDF sale con "Imprimir / PDF".
 - Calculos: MGO end of day = start - consumo + bunkered - delivered (la planilla
   no restaba lo entregado); MGO de carga al cierre; aviso si las horas de motores
   no suman 24; dias de combustible = MGO al cierre / consumo promedio de las
-  ultimas 7 jornadas; tabla mensual 1-31 desde `dpr_consumo_diario`.
+  ultimas 7 jornadas; tabla mensual 1-31 desde `dpr_consumo_diario`. Un Toolbox o
+  Safety meeting registrado en el dia marca su X en la hoja DR.
 - Jornada: el DPR del dia D cubre las 24 h que terminan a las 0900 LT de D, asi
   que su consumo y horas de motores van al renglon D-1 de la tabla mensual (como
   en la planilla: el DPR 106 del 15/11 informa el dia 14).
+- Los eventos EHSQ se guardan por fecha (`ehsq_eventos`), no por DPR: borrar un
+  DPR no borra los eventos de ese dia.
 
 ## Usuarios (login)
 

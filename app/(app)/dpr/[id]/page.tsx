@@ -3,19 +3,24 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import DprForm from "@/components/DprForm";
 import ConfirmarSubmit from "@/components/ConfirmarSubmit";
-import type { Dpr, Persona } from "@/lib/dpr";
+import type { Dpr } from "@/lib/dpr";
 import { stateDesdeDpr } from "@/lib/dpr-form";
+import { anteriorA, eventosDe, proyectosDelBuque, shipmentDe, tripulacionDe } from "@/lib/dpr-datos";
 import { eliminarDpr, guardarDpr } from "../actions";
 
 export default async function EditarDprPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const [{ data: dpr }, { data: personas }] = await Promise.all([
-    supabase.from("dpr").select("*").eq("id", id).maybeSingle(),
-    supabase.from("dpr_personas").select("*").order("orden"),
-  ]);
+  const { data: dpr } = await supabase.from("dpr").select("*").eq("id", id).maybeSingle();
   if (!dpr) notFound();
   const d = dpr as Dpr;
+  const [tripulacion, eventos, shipment, ant, proyectos] = await Promise.all([
+    tripulacionDe(supabase, id),
+    eventosDe(supabase, d.fecha),
+    shipmentDe(supabase, id),
+    anteriorA(supabase, d.fecha),
+    proyectosDelBuque(supabase),
+  ]);
 
   return (
     <div>
@@ -35,8 +40,10 @@ export default async function EditarDprPage({ params }: { params: Promise<{ id: 
       <DprForm
         key={d.updated_at}
         action={guardarDpr.bind(null, id)}
-        inicial={stateDesdeDpr(d)}
-        personas={(personas ?? []) as Persona[]}
+        proyectos={proyectos}
+        inicial={stateDesdeDpr(d, tripulacion, eventos, shipment)}
+        tripulacionAnterior={ant.tripulacion}
+        numeroAnterior={ant.anterior?.numero ?? null}
       />
     </div>
   );

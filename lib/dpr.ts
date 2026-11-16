@@ -53,9 +53,23 @@ export interface DprGuardia {
   eventos: DprEvento[];
 }
 
+export interface Proyecto {
+  id: string;
+  nro_proyecto: string | null;
+  nombre: string;
+  compania: string | null;
+  estado: string | null;
+}
+
+export function etiquetaProyecto(p: Pick<Proyecto, "nro_proyecto" | "nombre"> | null | undefined) {
+  if (!p) return "";
+  return [p.nro_proyecto, p.nombre].filter(Boolean).join(" · ");
+}
+
 export interface Dpr {
   id: string;
   numero: number;
+  proyecto_id: string | null;
   fecha: string; // YYYY-MM-DD
   huso: string;
   buque: string;
@@ -104,19 +118,36 @@ export interface Dpr {
 
 export type DprInput = Omit<Dpr, "id" | "usuario_email" | "created_at" | "updated_at">;
 
-export interface Persona {
-  id: string;
+export const TIPOS_EHSQ = ["Toolbox", "Safety meeting", "Inspection", "Observ. Card", "Hot work", "Improve"] as const;
+
+/** Tripulante o pasajero a bordo, en la lista de un DPR. */
+export interface Tripulante {
   tipo: "tripulante" | "pasajero";
-  orden: number;
-  cargo: string | null;
+  cargo: string;
   nombre: string;
-  apellido: string | null;
-  nacionalidad: string | null;
-  pasaporte: string | null;
-  pasaporte_vence: string | null;
-  fecha_nacimiento: string | null;
-  fecha_embarque: string | null;
-  fecha_desembarque: string | null;
+  apellido: string;
+  nacionalidad: string;
+  pasaporte: string;
+  pasaporte_vence: string;
+  fecha_nacimiento: string;
+  fecha_embarque: string;
+}
+
+export interface EventoHse {
+  tipo: string;
+  tarea: string;
+  personas: string;
+  lugar: string;
+  hora_inicio: string;
+  hora_fin: string;
+}
+
+export interface Shipment {
+  bl_awb: string;
+  po: string;
+  bultos: string;
+  peso: string;
+  comentario: string;
 }
 
 export interface ConsumoDiario {
@@ -254,19 +285,60 @@ export function tablaMensual(fechaDpr: string, consumos: ConsumoDiario[]): FilaM
   });
 }
 
-/** Personas a bordo en la fecha del DPR. */
-export function aBordo(personas: Persona[], fecha: string) {
-  const a = personas
-    .filter(
-      (p) =>
-        (!p.fecha_embarque || p.fecha_embarque <= fecha) &&
-        (!p.fecha_desembarque || p.fecha_desembarque > fecha)
-    )
-    .sort((x, y) => x.orden - y.orden);
+const claveTripulante = (p: Pick<Tripulante, "nombre" | "apellido">) =>
+  `${p.nombre} ${p.apellido ?? ""}`
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .trim()
+    .toLowerCase();
+
+/** Diferencia de la lista de a bordo contra la del DPR anterior. */
+export function diffTripulacion(anterior: Tripulante[] | null, actual: Tripulante[]) {
+  if (!anterior) return { subieron: [] as Tripulante[], bajaron: [] as Tripulante[] };
+  const antes = new Set(anterior.map(claveTripulante));
+  const ahora = new Set(actual.map(claveTripulante));
   return {
-    tripulantes: a.filter((p) => p.tipo === "tripulante"),
-    pasajeros: a.filter((p) => p.tipo === "pasajero"),
+    subieron: actual.filter((p) => p.nombre.trim() && !antes.has(claveTripulante(p))),
+    bajaron: anterior.filter((p) => !ahora.has(claveTripulante(p))),
   };
+}
+
+export function nombreCompleto(p: Pick<Tripulante, "nombre" | "apellido">) {
+  return [p.nombre, p.apellido].filter((x) => x && x.trim()).join(" ");
+}
+
+/** Normaliza filas leidas de la base (null -> "") para el formulario y la hoja. */
+export function tripulanteDesdeFila(r: Record<string, unknown>): Tripulante {
+  const t = (k: string) => (r[k] === null || r[k] === undefined ? "" : String(r[k]));
+  return {
+    tipo: r.tipo === "pasajero" ? "pasajero" : "tripulante",
+    cargo: t("cargo"),
+    nombre: t("nombre"),
+    apellido: t("apellido"),
+    nacionalidad: t("nacionalidad"),
+    pasaporte: t("pasaporte"),
+    pasaporte_vence: t("pasaporte_vence"),
+    fecha_nacimiento: t("fecha_nacimiento"),
+    fecha_embarque: t("fecha_embarque"),
+  };
+}
+
+export function eventoDesdeFila(r: Record<string, unknown>): EventoHse {
+  const t = (k: string) => (r[k] === null || r[k] === undefined ? "" : String(r[k]));
+  return {
+    tipo: t("tipo"),
+    tarea: t("tarea"),
+    personas: t("personas"),
+    lugar: t("lugar"),
+    hora_inicio: t("hora_inicio"),
+    hora_fin: t("hora_fin"),
+  };
+}
+
+export function shipmentDesdeFila(r: Record<string, unknown>): Shipment {
+  const t = (k: string) => (r[k] === null || r[k] === undefined ? "" : String(r[k]));
+  return { bl_awb: t("bl_awb"), po: t("po"), bultos: t("bultos"), peso: t("peso"), comentario: t("comentario") };
 }
 
 export function guardiasVacias(): DprGuardia[] {

@@ -30,6 +30,7 @@ function filaDesdePayload(raw: Record<string, unknown>) {
   const fila: Record<string, unknown> = { numero, fecha };
   for (const k of CAMPOS_TEXTO) fila[k] = texto(raw[k]);
   for (const k of CAMPOS_NUMERICOS) fila[k] = parseNum(raw[k]);
+  fila.proyecto_id = texto(raw.proyecto_id);
   fila.huso = fila.huso ?? "UTC-3";
   fila.buque = fila.buque ?? "Atlantic Dama";
 
@@ -70,10 +71,74 @@ async function guardarJornada(
   if (error) throw new Error(error.message);
 }
 
+const txt = (v: unknown) => (typeof v === "string" && v.trim() !== "" ? v.trim() : null);
+const lista = (v: unknown) =>
+  (Array.isArray(v) ? v : []).filter((x): x is Record<string, unknown> => !!x && typeof x === "object");
+
+/** Reemplaza la lista de a bordo y el shipment del DPR, y los eventos EHSQ de su fecha. */
+async function guardarListas(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  dprId: string,
+  fecha: string,
+  fechaAnterior: string | undefined,
+  raw: Record<string, unknown>
+) {
+  const tripulacion = lista(raw.tripulacion)
+    .filter((p) => txt(p.nombre))
+    .map((p, i) => ({
+      dpr_id: dprId,
+      tipo: p.tipo === "pasajero" ? "pasajero" : "tripulante",
+      orden: i + 1,
+      cargo: txt(p.cargo),
+      nombre: txt(p.nombre) as string,
+      apellido: txt(p.apellido),
+      nacionalidad: txt(p.nacionalidad),
+      pasaporte: txt(p.pasaporte),
+      pasaporte_vence: txt(p.pasaporte_vence),
+      fecha_nacimiento: txt(p.fecha_nacimiento),
+      fecha_embarque: txt(p.fecha_embarque),
+    }));
+  const eventos = lista(raw.eventos)
+    .filter((e) => txt(e.tipo))
+    .map((e, i) => ({
+      fecha,
+      tipo: txt(e.tipo) as string,
+      tarea: txt(e.tarea),
+      personas: parseNum(e.personas),
+      lugar: txt(e.lugar),
+      hora_inicio: txt(e.hora_inicio),
+      hora_fin: txt(e.hora_fin),
+      orden: i + 1,
+    }));
+  const shipment = lista(raw.shipment)
+    .filter((x) => ["bl_awb", "po", "bultos", "peso", "comentario"].some((k) => txt(x[k])))
+    .map((x, i) => ({
+      dpr_id: dprId,
+      orden: i + 1,
+      bl_awb: txt(x.bl_awb),
+      po: txt(x.po),
+      bultos: txt(x.bultos),
+      peso: txt(x.peso),
+      comentario: txt(x.comentario),
+    }));
+
+  const chk = (r: { error: { message: string } | null }) => {
+    if (r.error) throw new Error(r.error.message);
+  };
+  chk(await supabase.from("dpr_tripulacion").delete().eq("dpr_id", dprId));
+  if (tripulacion.length) chk(await supabase.from("dpr_tripulacion").insert(tripulacion));
+  chk(await supabase.from("dpr_shipment").delete().eq("dpr_id", dprId));
+  if (shipment.length) chk(await supabase.from("dpr_shipment").insert(shipment));
+  const fechas = [...new Set([fecha, fechaAnterior].filter((f): f is string => !!f))];
+  chk(await supabase.from("ehsq_eventos").delete().in("fecha", fechas));
+  if (eventos.length) chk(await supabase.from("ehsq_eventos").insert(eventos));
+}
+
 export async function guardarDpr(id: string | null, formData: FormData) {
   const payload = formData.get("payload");
   if (typeof payload !== "string") throw new Error("Formulario vacio.");
-  const fila = filaDesdePayload(JSON.parse(payload));
+  const raw = JSON.parse(payload) as Record<string, unknown>;
+  const fila = filaDesdePayload(raw);
 
   const supabase = await createClient();
   const {
@@ -87,11 +152,13 @@ export async function guardarDpr(id: string | null, formData: FormData) {
     const { error } = await supabase.from("dpr").update(fila).eq("id", id);
     if (error) throw new Error(traducirError(error.message));
     await guardarJornada(supabase, id, fila, previo?.fecha);
+    await guardarListas(supabase, id, fila.fecha, previo?.fecha, raw);
   } else {
     const { data, error } = await supabase.from("dpr").insert(fila).select("id").single();
     if (error) throw new Error(traducirError(error.message));
     dprId = data.id;
     await guardarJornada(supabase, data.id, fila);
+    await guardarListas(supabase, data.id, fila.fecha, undefined, raw);
   }
 
   revalidatePath("/dpr");
@@ -111,44 +178,4 @@ function traducirError(msg: string) {
   if (msg.includes("dpr_numero_key")) return "Ya existe un DPR con ese numero.";
   if (msg.includes("dpr_fecha_key")) return "Ya existe un DPR con esa fecha.";
   return msg;
-}
-
-// ── tripulacion y pasajeros ──
-
-function filaPersona(formData: FormData) {
-  const s = (k: string) => texto(formData.get(k));
-  const tipo = s("tipo") === "pasajero" ? "pasajero" : "tripulante";
-  return {
-    tipo,
-    orden: parseNum(formData.get("orden")) ?? 0,
-    cargo: s("cargo"),
-    nombre: s("nombre") ?? "",
-    apellido: s("apellido"),
-    nacionalidad: s("nacionalidad"),
-    pasaporte: s("pasaporte"),
-    pasaporte_vence: s("pasaporte_vence"),
-    fecha_nacimiento: s("fecha_nacimiento"),
-    fecha_embarque: s("fecha_embarque"),
-    fecha_desembarque: s("fecha_desembarque"),
-  };
-}
-
-export async function guardarPersona(id: string | null, formData: FormData) {
-  const fila = filaPersona(formData);
-  if (!fila.nombre) throw new Error("Falta el nombre.");
-  const supabase = await createClient();
-  const { error } = id
-    ? await supabase.from("dpr_personas").update(fila).eq("id", id)
-    : await supabase.from("dpr_personas").insert(fila);
-  if (error) throw new Error(error.message);
-  revalidatePath("/dpr/tripulacion");
-  redirect("/dpr/tripulacion");
-}
-
-export async function eliminarPersona(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("dpr_personas").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-  revalidatePath("/dpr/tripulacion");
-  redirect("/dpr/tripulacion");
 }
