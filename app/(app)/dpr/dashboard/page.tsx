@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import GraficoConsumo from "@/components/GraficoConsumo";
+import GraficoPob, { type PuntoPob } from "@/components/GraficoPob";
 import FiltroDashboard from "@/components/FiltroDashboard";
 import {
   DRILLS,
@@ -121,6 +122,25 @@ export default async function DashboardDprPage({
     const porFecha = new Map(consumos.map((c) => [c.fecha, c.consumo === null ? null : Number(c.consumo)]));
     for (let f = jornadaDe(desde); f <= jornadaDe(hasta); f = sumarDias(f, 1)) {
       puntos.push({ fecha: f, valor: porFecha.get(f) ?? null });
+    }
+  }
+
+  // serie diaria de personas a bordo: tripulantes = PL Offshore, pasajeros = cliente
+  const pob: PuntoPob[] = [];
+  if (desde) {
+    const dprPorFecha = new Map(dprs.map((d) => [d.fecha, d]));
+    for (let f = desde; f <= hasta; f = sumarDias(f, 1)) {
+      const d = dprPorFecha.get(f);
+      const lista = d ? tripPorDpr.get(d.id) : undefined;
+      pob.push(
+        lista?.length
+          ? {
+              fecha: f,
+              propios: lista.filter((p) => p.tipo === "tripulante").length,
+              cliente: lista.filter((p) => p.tipo === "pasajero").length,
+            }
+          : { fecha: f, propios: null, cliente: null }
+      );
     }
   }
 
@@ -285,6 +305,11 @@ export default async function DashboardDprPage({
       <div className="card">
         <div className="card-title">Consumo diario de MGO (m³ por jornada)</div>
         <GraficoConsumo puntos={puntos} />
+      </div>
+
+      <div className="card">
+        <div className="card-title">Personas a bordo por dia</div>
+        <GraficoPob puntos={pob} />
       </div>
 
       <div className="dash-grid">

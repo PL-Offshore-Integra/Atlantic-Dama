@@ -217,6 +217,7 @@ tr.click:hover td{background:var(--surface2);cursor:pointer}
 .viz-tick{font:11px var(--mono);fill:var(--muted)}
 .viz-bar{fill:var(--s1)}
 .viz-bar.on{fill:var(--navy)}
+.viz-pob.s1{fill:var(--s1)}.viz-pob.s2{fill:var(--s2)}.viz-pob.on{opacity:.75}
 .viz-tip{position:absolute;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:6px 10px;font-size:12px;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,.08);white-space:nowrap}
 .viz-tip-t{color:var(--muted);font-size:11px}
 .seg{display:flex;gap:2px;height:28px;margin-bottom:10px}
